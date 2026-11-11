@@ -1,0 +1,6 @@
+{
+  "name": "宴会仕込み・卸発注ナビ",
+  "description": "飲食店の店主向け：予約人数とコースから食材ごとの仕込み量と卸への発注締め切りを即座に算出するブラウザ完結ツール",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

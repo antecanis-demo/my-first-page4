@@ -1,0 +1,2879 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>宴会仕込み・卸発注ナビ｜飲食店向け 仕込み量＆発注締切計算</title>
+    <meta
+      name="description"
+      content="飲食店の店主向け：予約人数とコースを選ぶだけで、食材ごとの仕込み量の目安と卸への発注締め切りがすぐ分かるブラウザ完結ツール。"
+    />
+    <meta property="og:title" content="宴会仕込み・卸発注ナビ" />
+    <meta
+      property="og:description"
+      content="宴会・団体予約の人数とコースから、食材の仕込み量と卸先別の発注締め切りを即座に算出。"
+    />
+    <meta property="og:type" content="website" />
+    <style>
+      :root {
+        --bg-canvas: #f6f6f3;
+        --bg-surface: #ffffff;
+        --bg-subtle: #efefe9;
+        --bg-hover: #f9f9f7;
+        --border-hairline: #e2e2da;
+        --border-strong: #c8c8be;
+        --text-primary: #18181b;
+        --text-secondary: #52525b;
+        --text-muted: #71717a;
+        --accent-primary: #1d3557;
+        --accent-primary-hover: #152843;
+        --accent-soft: #eef2f7;
+        --status-ok: #15803d;
+        --status-ok-bg: #f0fdf4;
+        --status-ok-border: #bbf7d0;
+        --status-warn: #b45309;
+        --status-warn-bg: #fffbeb;
+        --status-warn-border: #fde68a;
+        --status-danger: #b91c1c;
+        --status-danger-bg: #fef2f2;
+        --status-danger-border: #fecaca;
+        --radius-lg: 14px;
+        --radius-md: 10px;
+        --radius-sm: 8px;
+        --shadow-sm: 0 1px 2px rgba(24, 24, 27, 0.04);
+      }
+
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+
+      html {
+        -webkit-text-size-adjust: 100%;
+        scroll-behavior: smooth;
+      }
+
+      body {
+        margin: 0;
+        background-color: var(--bg-canvas);
+        color: var(--text-primary);
+        font-family:
+          "Hiragino Kaku Gothic ProN",
+          "Hiragino Sans",
+          "BIZ UDPGothic",
+          "Yu Gothic UI",
+          "Meiryo",
+          system-ui,
+          -apple-system,
+          sans-serif;
+        font-size: 15px;
+        line-height: 1.55;
+        -webkit-font-smoothing: antialiased;
+        padding-bottom: 84px;
+      }
+
+      @media (min-width: 1024px) {
+        body {
+          padding-bottom: 32px;
+        }
+      }
+
+      .tnum {
+        font-variant-numeric: tabular-nums;
+        font-feature-settings: "tnum";
+      }
+
+      /* Focus ring */
+      :focus-visible {
+        outline: 2px solid var(--accent-primary);
+        outline-offset: 2px;
+      }
+
+      /* Top Bar (Strict 3-zone single row) */
+      .topbar {
+        background-color: var(--bg-surface);
+        border-bottom: 1px solid var(--border-hairline);
+        position: sticky;
+        top: 0;
+        z-index: 30;
+      }
+
+      .topbar-inner {
+        max-width: 1240px;
+        margin: 0 auto;
+        padding: 0 16px;
+        height: 58px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 24px;
+      }
+
+      @media (min-width: 768px) {
+        .topbar-inner {
+          padding: 0 24px;
+        }
+      }
+
+      .brand {
+        font-size: 17px;
+        font-weight: 700;
+        color: var(--text-primary);
+        letter-spacing: -0.01em;
+        text-decoration: none;
+        white-space: nowrap;
+        flex-shrink: 0;
+      }
+
+      .topnav {
+        display: none;
+        align-items: center;
+        gap: 24px;
+      }
+
+      @media (min-width: 768px) {
+        .topnav {
+          display: flex;
+        }
+      }
+
+      .topnav a {
+        font-size: 14px;
+        font-weight: 500;
+        color: var(--text-secondary);
+        text-decoration: none;
+        white-space: nowrap;
+        flex-shrink: 0;
+        padding: 4px 0;
+        border-bottom: 1.5px solid transparent;
+        transition: color 150ms cubic-bezier(0.16, 1, 0.3, 1),
+          border-color 150ms cubic-bezier(0.16, 1, 0.3, 1);
+      }
+
+      .topnav a:hover {
+        color: var(--text-primary);
+        border-bottom-color: var(--border-strong);
+      }
+
+      .btn-primary {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        min-height: 44px;
+        padding: 10px 18px;
+        background-color: var(--accent-primary);
+        color: #ffffff;
+        font-size: 14px;
+        font-weight: 600;
+        border: none;
+        border-radius: var(--radius-sm);
+        cursor: pointer;
+        white-space: nowrap;
+        flex-shrink: 0;
+        transition: background-color 150ms cubic-bezier(0.16, 1, 0.3, 1),
+          transform 120ms cubic-bezier(0.16, 1, 0.3, 1);
+      }
+
+      .btn-primary:hover {
+        background-color: var(--accent-primary-hover);
+      }
+
+      .btn-primary:active {
+        transform: scale(0.98);
+      }
+
+      .btn-secondary {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        min-height: 44px;
+        padding: 8px 16px;
+        background-color: var(--bg-surface);
+        color: var(--text-primary);
+        font-size: 13px;
+        font-weight: 600;
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-sm);
+        cursor: pointer;
+        white-space: nowrap;
+        flex-shrink: 0;
+        transition: background-color 150ms ease, border-color 150ms ease,
+          transform 120ms ease;
+      }
+
+      .btn-secondary:hover {
+        background-color: var(--bg-subtle);
+      }
+
+      .btn-secondary:active {
+        transform: scale(0.98);
+      }
+
+      /* Main Layout */
+      .container {
+        max-width: 1240px;
+        margin: 0 auto;
+        padding: 20px 16px 32px;
+      }
+
+      @media (min-width: 768px) {
+        .container {
+          padding: 28px 24px 48px;
+        }
+      }
+
+      .page-intro {
+        margin-bottom: 24px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      @media (min-width: 768px) {
+        .page-intro {
+          flex-direction: row;
+          align-items: flex-end;
+          justify-content: space-between;
+          gap: 24px;
+        }
+      }
+
+      .page-title {
+        margin: 0;
+        font-size: clamp(1.375rem, 2.4vw, 1.875rem);
+        font-weight: 700;
+        line-height: 1.25;
+        letter-spacing: -0.02em;
+        text-wrap: balance;
+      }
+
+      .page-subtitle {
+        margin: 4px 0 0;
+        font-size: 14px;
+        color: var(--text-secondary);
+      }
+
+      .intro-actions {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+
+      .workspace-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 20px;
+        align-items: start;
+      }
+
+      @media (min-width: 1024px) {
+        .workspace-grid {
+          grid-template-columns: 400px 1fr;
+          gap: 24px;
+        }
+      }
+
+      /* Single-Elevation Surface Cards */
+      .panel {
+        background-color: var(--bg-surface);
+        border: 1px solid var(--border-hairline);
+        border-radius: var(--radius-lg);
+        box-shadow: var(--shadow-sm);
+        padding: 20px;
+      }
+
+      @media (min-width: 768px) {
+        .panel {
+          padding: 24px;
+        }
+      }
+
+      .panel-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 18px;
+        padding-bottom: 14px;
+        border-bottom: 1px solid var(--border-hairline);
+      }
+
+      .panel-title {
+        margin: 0;
+        font-size: 16px;
+        font-weight: 700;
+        color: var(--text-primary);
+      }
+
+      .panel-meta {
+        font-size: 12px;
+        color: var(--text-muted);
+      }
+
+      /* Control Stack */
+      .control-stack {
+        display: flex;
+        flex-direction: column;
+        gap: 22px;
+      }
+
+      .field-group {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .field-label-row {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 8px;
+      }
+
+      .field-label {
+        font-size: 13px;
+        font-weight: 700;
+        color: var(--text-primary);
+      }
+
+      .field-hint {
+        font-size: 12px;
+        color: var(--text-muted);
+      }
+
+      /* Guest Counter + Stepper + Slider */
+      .guest-stepper {
+        display: grid;
+        grid-template-columns: 48px 1fr 48px;
+        gap: 8px;
+        align-items: center;
+      }
+
+      .stepper-btn {
+        height: 46px;
+        border: 1px solid var(--border-strong);
+        background-color: var(--bg-surface);
+        color: var(--text-primary);
+        border-radius: var(--radius-sm);
+        font-size: 18px;
+        font-weight: 700;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: background-color 140ms ease, transform 100ms ease;
+      }
+
+      .stepper-btn:hover {
+        background-color: var(--bg-subtle);
+      }
+
+      .stepper-btn:active {
+        transform: scale(0.96);
+      }
+
+      .guest-input-wrap {
+        position: relative;
+        display: flex;
+        align-items: center;
+      }
+
+      .guest-input {
+        width: 100%;
+        height: 46px;
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-sm);
+        padding: 0 36px 0 14px;
+        font-size: 20px;
+        font-weight: 700;
+        text-align: center;
+        color: var(--text-primary);
+        background-color: var(--bg-surface);
+        font-family: inherit;
+      }
+
+      .guest-unit {
+        position: absolute;
+        right: 14px;
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--text-muted);
+        pointer-events: none;
+      }
+
+      /* Range Slider */
+      .range-slider {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 100%;
+        height: 8px;
+        border-radius: 999px;
+        background: var(--bg-subtle);
+        outline: none;
+        margin: 8px 0 4px;
+        cursor: pointer;
+      }
+
+      .range-slider::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        background: var(--accent-primary);
+        border: 3px solid #ffffff;
+        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+        cursor: pointer;
+        transition: transform 120ms ease;
+      }
+
+      .range-slider::-webkit-slider-thumb:hover {
+        transform: scale(1.08);
+      }
+
+      .range-slider::-moz-range-thumb {
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        background: var(--accent-primary);
+        border: 3px solid #ffffff;
+        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+        cursor: pointer;
+      }
+
+      .quick-row {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 6px;
+      }
+
+      .quick-btn {
+        min-height: 44px;
+        padding: 6px 8px;
+        border: 1px solid var(--border-hairline);
+        background-color: var(--bg-subtle);
+        color: var(--text-primary);
+        border-radius: var(--radius-sm);
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        white-space: nowrap;
+        transition: background-color 140ms ease, border-color 140ms ease;
+      }
+
+      .quick-btn:hover {
+        background-color: #e5e5dd;
+      }
+
+      .quick-btn.is-active {
+        background-color: var(--accent-primary);
+        color: #ffffff;
+        border-color: var(--accent-primary);
+      }
+
+      /* Date & Time Inputs */
+      .datetime-grid {
+        display: grid;
+        grid-template-columns: 1fr 124px;
+        gap: 8px;
+      }
+
+      .text-input,
+      .select-input {
+        width: 100%;
+        min-height: 44px;
+        padding: 8px 12px;
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-sm);
+        background-color: var(--bg-surface);
+        color: var(--text-primary);
+        font-size: 14px;
+        font-family: inherit;
+      }
+
+      /* Course Selector List */
+      .course-list {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .course-option {
+        width: 100%;
+        text-align: left;
+        padding: 14px;
+        border: 1px solid var(--border-hairline);
+        border-radius: var(--radius-md);
+        background-color: var(--bg-surface);
+        cursor: pointer;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        transition: border-color 150ms ease, background-color 150ms ease;
+      }
+
+      .course-option:hover {
+        background-color: var(--bg-hover);
+        border-color: var(--border-strong);
+      }
+
+      .course-option.is-selected {
+        border-color: var(--accent-primary);
+        background-color: var(--accent-soft);
+        box-shadow: inset 0 0 0 1px var(--accent-primary);
+      }
+
+      .course-option-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+      }
+
+      .course-name {
+        font-size: 14px;
+        font-weight: 700;
+        color: var(--text-primary);
+      }
+
+      .course-price {
+        font-size: 13px;
+        font-weight: 700;
+        color: var(--accent-primary);
+        white-space: nowrap;
+      }
+
+      .course-meta {
+        font-size: 12px;
+        color: var(--text-secondary);
+        line-height: 1.4;
+      }
+
+      /* Toggle Switch Row */
+      .toggle-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 12px 14px;
+        border: 1px solid var(--border-hairline);
+        border-radius: var(--radius-md);
+        background-color: var(--bg-hover);
+        cursor: pointer;
+        min-height: 52px;
+      }
+
+      .toggle-text {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+
+      .toggle-title {
+        font-size: 13px;
+        font-weight: 700;
+        color: var(--text-primary);
+      }
+
+      .toggle-desc {
+        font-size: 12px;
+        color: var(--text-secondary);
+      }
+
+      .switch {
+        position: relative;
+        width: 46px;
+        height: 26px;
+        flex-shrink: 0;
+      }
+
+      .switch input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+        position: absolute;
+      }
+
+      .switch-track {
+        position: absolute;
+        inset: 0;
+        background-color: #cbd5e1;
+        border-radius: 999px;
+        transition: background-color 150ms ease;
+      }
+
+      .switch-track::before {
+        content: "";
+        position: absolute;
+        width: 20px;
+        height: 20px;
+        left: 3px;
+        top: 3px;
+        border-radius: 50%;
+        background-color: #ffffff;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+        transition: transform 150ms cubic-bezier(0.16, 1, 0.3, 1);
+      }
+
+      .switch input:checked + .switch-track {
+        background-color: var(--accent-primary);
+      }
+
+      .switch input:checked + .switch-track::before {
+        transform: translateX(20px);
+      }
+
+      /* Right Column: Results */
+      .results-stack {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+      }
+
+      /* 4-KPI Summary Strip */
+      .kpi-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+      }
+
+      @media (min-width: 768px) {
+        .kpi-grid {
+          grid-template-columns: repeat(4, 1fr);
+        }
+      }
+
+      .kpi-box {
+        background-color: var(--bg-surface);
+        border: 1px solid var(--border-hairline);
+        border-radius: var(--radius-md);
+        padding: 14px 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+
+      .kpi-label {
+        font-size: 12px;
+        color: var(--text-muted);
+        font-weight: 600;
+      }
+
+      .kpi-value {
+        font-size: 20px;
+        font-weight: 700;
+        color: var(--text-primary);
+        line-height: 1.25;
+      }
+
+      .kpi-sub {
+        font-size: 12px;
+        color: var(--text-secondary);
+      }
+
+      /* Deadline Timeline Grid */
+      .deadline-list {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 12px;
+      }
+
+      @media (min-width: 640px) {
+        .deadline-list {
+          grid-template-columns: repeat(2, 1fr);
+        }
+      }
+
+      .deadline-item {
+        border: 1px solid var(--border-hairline);
+        border-radius: var(--radius-md);
+        padding: 14px 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        background-color: var(--bg-surface);
+      }
+
+      .deadline-item.state-ok {
+        border-color: var(--status-ok-border);
+        background-color: var(--status-ok-bg);
+      }
+
+      .deadline-item.state-warn {
+        border-color: var(--status-warn-border);
+        background-color: var(--status-warn-bg);
+      }
+
+      .deadline-item.state-danger {
+        border-color: var(--status-danger-border);
+        background-color: var(--status-danger-bg);
+      }
+
+      .deadline-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+      }
+
+      .deadline-vendor {
+        font-size: 14px;
+        font-weight: 700;
+        color: var(--text-primary);
+      }
+
+      .status-text {
+        font-size: 12px;
+        font-weight: 700;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        white-space: nowrap;
+      }
+
+      .state-ok .status-text {
+        color: var(--status-ok);
+      }
+
+      .state-warn .status-text {
+        color: var(--status-warn);
+      }
+
+      .state-danger .status-text {
+        color: var(--status-danger);
+      }
+
+      .deadline-datetime {
+        font-size: 15px;
+        font-weight: 700;
+        color: var(--text-primary);
+      }
+
+      .deadline-items-preview {
+        font-size: 12px;
+        color: var(--text-secondary);
+        line-height: 1.45;
+      }
+
+      .deadline-footer {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        padding-top: 6px;
+        border-top: 1px solid rgba(24, 24, 27, 0.08);
+        font-size: 12px;
+        color: var(--text-secondary);
+      }
+
+      .mini-copy-btn {
+        min-height: 36px;
+        padding: 4px 10px;
+        border: 1px solid var(--border-strong);
+        background-color: #ffffff;
+        color: var(--text-primary);
+        border-radius: 6px;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        white-space: nowrap;
+      }
+
+      .mini-copy-btn:hover {
+        background-color: var(--bg-subtle);
+      }
+
+      /* Market Closed / Urgency Banner */
+      .notice-banner {
+        padding: 12px 16px;
+        border-radius: var(--radius-md);
+        border: 1px solid var(--status-warn-border);
+        background-color: var(--status-warn-bg);
+        color: #78350f;
+        font-size: 13px;
+        line-height: 1.5;
+        display: none;
+      }
+
+      .notice-banner.is-visible {
+        display: block;
+      }
+
+      /* Prep & Order Table Controls */
+      .table-toolbar {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        margin-bottom: 16px;
+      }
+
+      @media (min-width: 768px) {
+        .table-toolbar {
+          flex-direction: row;
+          align-items: center;
+          justify-content: space-between;
+        }
+      }
+
+      .segmented-tabs {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        padding: 4px;
+        background-color: var(--bg-subtle);
+        border-radius: var(--radius-sm);
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+      }
+
+      .seg-btn {
+        min-height: 38px;
+        padding: 6px 12px;
+        border: none;
+        background: transparent;
+        color: var(--text-secondary);
+        font-size: 13px;
+        font-weight: 600;
+        border-radius: 6px;
+        cursor: pointer;
+        white-space: nowrap;
+        flex-shrink: 0;
+        transition: background-color 140ms ease, color 140ms ease;
+      }
+
+      .seg-btn:hover {
+        color: var(--text-primary);
+      }
+
+      .seg-btn.is-active {
+        background-color: var(--bg-surface);
+        color: var(--text-primary);
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+      }
+
+      .search-box {
+        width: 100%;
+        min-height: 44px;
+        padding: 8px 12px;
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-sm);
+        font-size: 14px;
+        color: var(--text-primary);
+        background-color: var(--bg-surface);
+        font-family: inherit;
+      }
+
+      @media (min-width: 768px) {
+        .search-box {
+          width: 220px;
+        }
+      }
+
+      /* Desktop Table & Mobile Cards */
+      .prep-table-wrap {
+        overflow-x: auto;
+        border: 1px solid var(--border-hairline);
+        border-radius: var(--radius-md);
+      }
+
+      table.prep-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 14px;
+      }
+
+      .prep-table th {
+        text-align: left;
+        font-size: 12px;
+        font-weight: 700;
+        color: var(--text-secondary);
+        background-color: var(--bg-subtle);
+        padding: 10px 12px;
+        border-bottom: 1px solid var(--border-hairline);
+        white-space: nowrap;
+      }
+
+      .prep-table th.num,
+      .prep-table td.num {
+        text-align: right;
+      }
+
+      .prep-table td {
+        padding: 12px;
+        border-bottom: 1px solid var(--border-hairline);
+        vertical-align: middle;
+      }
+
+      .prep-table tbody tr:last-child td {
+        border-bottom: none;
+      }
+
+      .prep-table tbody tr:hover {
+        background-color: var(--bg-hover);
+      }
+
+      .prep-table tbody tr.is-checked {
+        opacity: 0.56;
+        background-color: #fafaf8;
+      }
+
+      .prep-table tbody tr.is-checked .item-name {
+        text-decoration: line-through;
+      }
+
+      .check-cell {
+        width: 44px;
+        text-align: center;
+      }
+
+      .prep-checkbox {
+        width: 20px;
+        height: 20px;
+        accent-color: var(--accent-primary);
+        cursor: pointer;
+      }
+
+      .item-name {
+        font-weight: 700;
+        color: var(--text-primary);
+        display: block;
+      }
+
+      .item-sub {
+        font-size: 12px;
+        color: var(--text-secondary);
+        display: block;
+        margin-top: 2px;
+      }
+
+      .qty-main {
+        font-size: 16px;
+        font-weight: 700;
+        color: var(--text-primary);
+        white-space: nowrap;
+      }
+
+      .qty-order {
+        font-size: 14px;
+        font-weight: 700;
+        color: var(--accent-primary);
+        white-space: nowrap;
+      }
+
+      .qty-unit-note {
+        display: block;
+        font-size: 12px;
+        color: var(--text-muted);
+        font-weight: 400;
+      }
+
+      .remove-custom-btn {
+        min-height: 36px;
+        min-width: 36px;
+        border: 1px solid var(--border-hairline);
+        background: transparent;
+        color: var(--text-muted);
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 12px;
+      }
+
+      .remove-custom-btn:hover {
+        color: var(--status-danger);
+        border-color: var(--status-danger-border);
+        background-color: var(--status-danger-bg);
+      }
+
+      /* Mobile Card List (shown < 768px instead of cramped horizontal table) */
+      .mobile-prep-list {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .mobile-prep-card {
+        border: 1px solid var(--border-hairline);
+        border-radius: var(--radius-md);
+        padding: 12px 14px;
+        background-color: var(--bg-surface);
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .mobile-prep-card.is-checked {
+        opacity: 0.56;
+        background-color: #fafaf8;
+      }
+
+      .mobile-prep-card.is-checked .item-name {
+        text-decoration: line-through;
+      }
+
+      .mobile-card-head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 10px;
+      }
+
+      .mobile-card-check-wrap {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+      }
+
+      .mobile-card-metrics {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        padding-top: 8px;
+        border-top: 1px solid var(--border-hairline);
+      }
+
+      .mobile-metric-label {
+        font-size: 11px;
+        color: var(--text-muted);
+        display: block;
+      }
+
+      @media (max-width: 767px) {
+        .prep-table-wrap {
+          display: none;
+        }
+      }
+
+      @media (min-width: 768px) {
+        .mobile-prep-list {
+          display: none;
+        }
+      }
+
+      /* Custom Ingredient Add Form */
+      .custom-add-form {
+        margin-top: 18px;
+        padding-top: 16px;
+        border-top: 1px solid var(--border-hairline);
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 8px;
+      }
+
+      @media (min-width: 768px) {
+        .custom-add-form {
+          grid-template-columns: 1.5fr 0.9fr 0.8fr 1fr auto;
+          align-items: end;
+        }
+      }
+
+      .mini-field label {
+        display: block;
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--text-secondary);
+        margin-bottom: 4px;
+      }
+
+      /* Dish Menu Breakdown */
+      .menu-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 10px;
+      }
+
+      @media (min-width: 640px) {
+        .menu-grid {
+          grid-template-columns: repeat(2, 1fr);
+        }
+      }
+
+      .dish-row {
+        padding: 10px 12px;
+        border: 1px solid var(--border-hairline);
+        border-radius: var(--radius-sm);
+        background-color: var(--bg-hover);
+      }
+
+      .dish-title {
+        font-size: 13px;
+        font-weight: 700;
+        color: var(--text-primary);
+      }
+
+      .dish-note {
+        font-size: 12px;
+        color: var(--text-secondary);
+        margin-top: 2px;
+      }
+
+      /* Mobile Sticky Bottom Bar (<= 15% mobile viewport) */
+      .mobile-sticky-bar {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        z-index: 40;
+        background-color: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(8px);
+        border-top: 1px solid var(--border-hairline);
+        padding: 8px 16px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      @media (min-width: 1024px) {
+        .mobile-sticky-bar {
+          display: none;
+        }
+      }
+
+      .mobile-sticky-info {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+      }
+
+      .mobile-sticky-main {
+        font-size: 14px;
+        font-weight: 700;
+        color: var(--text-primary);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .mobile-sticky-sub {
+        font-size: 12px;
+        color: var(--text-secondary);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      /* Toast Feedback */
+      .toast {
+        position: fixed;
+        bottom: 76px;
+        left: 50%;
+        transform: translateX(-50%) translateY(12px);
+        background-color: #18181b;
+        color: #ffffff;
+        padding: 10px 18px;
+        border-radius: 8px;
+        font-size: 13px;
+        font-weight: 600;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 160ms ease, transform 160ms ease;
+        z-index: 60;
+        white-space: nowrap;
+      }
+
+      @media (min-width: 1024px) {
+        .toast {
+          bottom: 24px;
+        }
+      }
+
+      .toast.is-shown {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+      }
+
+      /* Empty state */
+      .empty-state {
+        text-align: center;
+        padding: 32px 16px;
+        color: var(--text-secondary);
+        font-size: 14px;
+      }
+
+      /* Print Stylesheet for Kitchen Prep Sheet */
+      @media print {
+        body {
+          background-color: #ffffff;
+          padding: 0;
+        }
+        .topbar,
+        .intro-actions,
+        .mobile-sticky-bar,
+        .table-toolbar,
+        .custom-add-form,
+        .mini-copy-btn,
+        .remove-custom-btn,
+        .control-panel {
+          display: none !important;
+        }
+        .workspace-grid {
+          display: block;
+        }
+        .panel {
+          border: 1px solid #d4d4d8;
+          box-shadow: none;
+          margin-bottom: 16px;
+          break-inside: avoid;
+        }
+        .prep-table-wrap {
+          display: block !important;
+        }
+        .mobile-prep-list {
+          display: none !important;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          transition-duration: 0.01ms !important;
+          scroll-behavior: auto !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="topbar-inner">
+        <a href="#top" class="brand">宴会仕込み・卸発注ナビ</a>
+        <nav class="topnav" aria-label="ページ内移動">
+          <a href="#reservation-section">予約条件</a>
+          <a href="#deadline-section">発注締め切り</a>
+          <a href="#prep-section">仕込み一覧</a>
+          <a href="#course-detail-section">コース構成</a>
+        </nav>
+        <button type="button" id="topCopyBtn" class="btn-primary">
+          発注リストをコピー
+        </button>
+      </div>
+    </header>
+
+    <main id="top" class="container">
+      <div class="page-intro">
+        <div>
+          <h1 class="page-title">宴会予約の仕込み量と卸発注の締め切りを即算出</h1>
+          <p class="page-subtitle">
+            人数とコースを入力するだけで、食材ごとの必要量・仕入先別の発注目安・締切日時を自動で計算します。
+          </p>
+        </div>
+        <div class="intro-actions">
+          <button type="button" id="resetBtn" class="btn-secondary">初期値に戻す</button>
+          <button type="button" id="printBtn" class="btn-secondary">仕込み表を印刷</button>
+        </div>
+      </div>
+
+      <div class="workspace-grid">
+        <!-- 左カラム：予約条件の入力 -->
+        <section id="reservation-section" class="panel control-panel" aria-label="予約条件の設定">
+          <div class="panel-header">
+            <h2 class="panel-title">1. 予約条件を入力</h2>
+            <span class="panel-meta" id="todayDisplay"></span>
+          </div>
+
+          <div class="control-stack">
+            <!-- 予約日時 -->
+            <div class="field-group">
+              <div class="field-label-row">
+                <label class="field-label" for="eventDate">宴会の日時</label>
+                <span class="field-hint" id="daysUntilLabel"></span>
+              </div>
+              <div class="datetime-grid">
+                <input type="date" id="eventDate" class="text-input tnum" />
+                <input type="time" id="eventTime" class="text-input tnum" value="19:00" />
+              </div>
+              <div class="quick-row" role="group" aria-label="日付のクイック選択">
+                <button type="button" class="quick-btn" data-days="2">2日後</button>
+                <button type="button" class="quick-btn" data-days="5">5日後</button>
+                <button type="button" class="quick-btn" data-days="7">1週間後</button>
+                <button type="button" class="quick-btn" data-days="14">2週間後</button>
+              </div>
+            </div>
+
+            <!-- 予約人数 -->
+            <div class="field-group">
+              <div class="field-label-row">
+                <label class="field-label" for="guestInput">予約人数</label>
+                <span class="field-hint tnum">2〜120名対応</span>
+              </div>
+              <div class="guest-stepper">
+                <button
+                  type="button"
+                  id="guestMinusBtn"
+                  class="stepper-btn"
+                  aria-label="人数を1名減らす"
+                >
+                  −
+                </button>
+                <div class="guest-input-wrap">
+                  <input
+                    type="number"
+                    id="guestInput"
+                    class="guest-input tnum"
+                    min="2"
+                    max="120"
+                    value="20"
+                  />
+                  <span class="guest-unit">名</span>
+                </div>
+                <button
+                  type="button"
+                  id="guestPlusBtn"
+                  class="stepper-btn"
+                  aria-label="人数を1名増やす"
+                >
+                  ＋
+                </button>
+              </div>
+              <input
+                type="range"
+                id="guestSlider"
+                class="range-slider"
+                min="2"
+                max="120"
+                step="1"
+                value="20"
+                aria-label="予約人数スライダー"
+              />
+              <div class="quick-row" role="group" aria-label="人数のクイック選択">
+                <button type="button" class="quick-btn guest-preset" data-guests="8">8名</button>
+                <button type="button" class="quick-btn guest-preset" data-guests="16">16名</button>
+                <button type="button" class="quick-btn guest-preset" data-guests="24">24名</button>
+                <button type="button" class="quick-btn guest-preset" data-guests="40">40名</button>
+              </div>
+            </div>
+
+            <!-- 予備・歩留まり余裕率 -->
+            <div class="field-group">
+              <div class="field-label-row">
+                <label class="field-label" for="bufferSlider">仕込み予備率（急な増員・ロス対策）</label>
+                <span class="field-hint tnum" id="bufferLabel">+10%（+2名分）</span>
+              </div>
+              <input
+                type="range"
+                id="bufferSlider"
+                class="range-slider"
+                min="0"
+                max="20"
+                step="5"
+                value="10"
+                aria-label="仕込み予備率スライダー"
+              />
+            </div>
+
+            <!-- コース選択 -->
+            <div class="field-group">
+              <div class="field-label-row">
+                <span class="field-label">コースを選択</span>
+                <span class="field-hint">タップで切り替え</span>
+              </div>
+              <div class="course-list" id="courseList" role="radiogroup" aria-label="宴会コース"></div>
+            </div>
+
+            <!-- 飲み放題オプション -->
+            <label class="toggle-row" for="drinkToggle">
+              <span class="toggle-text">
+                <span class="toggle-title">飲み放題の飲料も算出する</span>
+                <span class="toggle-desc">生ビール樽・ハイボール・ソフトドリンク・氷を追加</span>
+              </span>
+              <span class="switch">
+                <input type="checkbox" id="drinkToggle" checked />
+                <span class="switch-track"></span>
+              </span>
+            </label>
+          </div>
+        </section>
+
+        <!-- 右カラム：算出結果 -->
+        <div class="results-stack">
+          <!-- サマリーKPI -->
+          <section class="kpi-grid" aria-label="計算結果サマリー">
+            <div class="kpi-box">
+              <span class="kpi-label">仕込み基準人数</span>
+              <span class="kpi-value tnum" id="kpiEffectiveGuests">22名分</span>
+              <span class="kpi-sub tnum" id="kpiGuestDetail">予約20名 ＋ 予備10%</span>
+            </div>
+            <div class="kpi-box">
+              <span class="kpi-label">売上見込（税込）</span>
+              <span class="kpi-value tnum" id="kpiRevenue">¥100,000</span>
+              <span class="kpi-sub tnum" id="kpiCourseUnit">1名 ¥5,000</span>
+            </div>
+            <div class="kpi-box">
+              <span class="kpi-label">最短の卸発注締切</span>
+              <span class="kpi-value tnum" id="kpiEarliestDeadline">--/--</span>
+              <span class="kpi-sub" id="kpiEarliestVendor">--</span>
+            </div>
+            <div class="kpi-box">
+              <span class="kpi-label">仕込み・発注品目</span>
+              <span class="kpi-value tnum" id="kpiItemCount">0品目</span>
+              <span class="kpi-sub tnum" id="kpiCheckedCount">確認済み 0品目</span>
+            </div>
+          </section>
+
+          <!-- 緊急・休市お知らせ -->
+          <div id="urgentNotice" class="notice-banner" role="alert"></div>
+
+          <!-- 卸への発注締め切りタイムライン -->
+          <section id="deadline-section" class="panel" aria-label="卸先別の発注締め切り">
+            <div class="panel-header">
+              <h2 class="panel-title">2. 卸先ごとの発注締め切り</h2>
+              <span class="panel-meta">宴会日から逆算して表示</span>
+            </div>
+            <div class="deadline-list" id="deadlineList"></div>
+          </section>
+
+          <!-- 食材ごとの仕込み量・発注目安 -->
+          <section id="prep-section" class="panel" aria-label="食材ごとの仕込み量と発注目安">
+            <div class="panel-header">
+              <h2 class="panel-title">3. 食材ごとの仕込み量・発注目安</h2>
+              <span class="panel-meta" id="prepSummaryMeta"></span>
+            </div>
+
+            <div class="table-toolbar">
+              <div class="segmented-tabs" id="categoryTabs" role="tablist" aria-label="食材カテゴリ絞り込み">
+                <button type="button" class="seg-btn is-active" data-cat="all" role="tab" aria-selected="true">すべて</button>
+                <button type="button" class="seg-btn" data-cat="fish" role="tab" aria-selected="false">鮮魚・魚介</button>
+                <button type="button" class="seg-btn" data-cat="meat" role="tab" aria-selected="false">精肉</button>
+                <button type="button" class="seg-btn" data-cat="veg" role="tab" aria-selected="false">青果・野菜</button>
+                <button type="button" class="seg-btn" data-cat="dry" role="tab" aria-selected="false">一般・酒類</button>
+              </div>
+              <input
+                type="search"
+                id="searchInput"
+                class="search-box"
+                placeholder="食材・料理名で検索..."
+                aria-label="食材・料理名で検索"
+              />
+            </div>
+
+            <!-- デスクトップ表 -->
+            <div class="prep-table-wrap">
+              <table class="prep-table">
+                <thead>
+                  <tr>
+                    <th class="check-cell">済</th>
+                    <th>食材・用途 / 仕込みポイント</th>
+                    <th>卸先</th>
+                    <th class="num">仕込み正味量</th>
+                    <th class="num">卸への発注目安</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody id="prepTableBody"></tbody>
+              </table>
+            </div>
+
+            <!-- スマホ用カードリスト -->
+            <div class="mobile-prep-list" id="mobilePrepList"></div>
+
+            <div id="emptyPrepState" class="empty-state" style="display: none;">
+              該当する食材が見つかりません。検索条件またはカテゴリを変更してください。
+            </div>
+
+            <!-- 独自食材追加フォーム -->
+            <form id="customIngredientForm" class="custom-add-form">
+              <div class="mini-field">
+                <label for="customName">特注・追加食材名</label>
+                <input
+                  type="text"
+                  id="customName"
+                  class="text-input"
+                  placeholder="例：祝い鯛（姿造り用）"
+                  required
+                />
+              </div>
+              <div class="mini-field">
+                <label for="customCat">卸先区分</label>
+                <select id="customCat" class="select-input">
+                  <option value="fish">鮮魚・魚介</option>
+                  <option value="meat">精肉</option>
+                  <option value="veg">青果・野菜</option>
+                  <option value="dry">一般・酒類</option>
+                </select>
+              </div>
+              <div class="mini-field">
+                <label for="customPerGuest">1名あたり量</label>
+                <input
+                  type="number"
+                  id="customPerGuest"
+                  class="text-input tnum"
+                  step="0.1"
+                  min="0.1"
+                  value="50"
+                  required
+                />
+              </div>
+              <div class="mini-field">
+                <label for="customUnit">単位</label>
+                <select id="customUnit" class="select-input">
+                  <option value="g">g（1000g→kg換算）</option>
+                  <option value="個">個</option>
+                  <option value="切れ">切れ</option>
+                  <option value="本">本</option>
+                  <option value="ml">ml（1000ml→L換算）</option>
+                </select>
+              </div>
+              <button type="submit" class="btn-secondary">食材を追加</button>
+            </form>
+          </section>
+
+          <!-- コース料理構成 -->
+          <section id="course-detail-section" class="panel" aria-label="選択コースの料理構成">
+            <div class="panel-header">
+              <h2 class="panel-title">選択中のコース構成</h2>
+              <span class="panel-meta" id="courseDishCount"></span>
+            </div>
+            <div class="menu-grid" id="courseDishGrid"></div>
+          </section>
+        </div>
+      </div>
+    </main>
+
+    <!-- スマホ用ボトムアクションバー -->
+    <div class="mobile-sticky-bar">
+      <div class="mobile-sticky-info">
+        <span class="mobile-sticky-main tnum" id="stickyMainInfo">20名 · 季節のスタンダード</span>
+        <span class="mobile-sticky-sub tnum" id="stickySubInfo">最短締切: --/--</span>
+      </div>
+      <button type="button" id="mobileCopyBtn" class="btn-primary">発注コピー</button>
+    </div>
+
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+    <script>
+      (function () {
+        "use strict";
+
+        // 卸先定義（リードタイム・締切時刻・休市情報）
+        const VENDORS = {
+          meat: {
+            id: "meat",
+            name: "精肉卸",
+            leadDays: 3,
+            cutoffHour: 15,
+            cutoffMin: 0,
+            note: "ブロック肉・下味用は3日前15時までに要確定",
+          },
+          fish: {
+            id: "fish",
+            name: "鮮魚・市場仲買",
+            leadDays: 2,
+            cutoffHour: 14,
+            cutoffMin: 0,
+            note: "水曜・日曜は市場休市のため前倒し発注推奨",
+          },
+          dry: {
+            id: "dry",
+            name: "総合卸・酒屋",
+            leadDays: 2,
+            cutoffHour: 16,
+            cutoffMin: 0,
+            note: "生ビール樽・調味料・乾物・冷凍資材",
+          },
+          veg: {
+            id: "veg",
+            name: "青果・八百屋",
+            leadDays: 1,
+            cutoffHour: 17,
+            cutoffMin: 0,
+            note: "鮮度重視のため前日夕方が最終締切",
+          },
+        };
+
+        // コースマスターデータ
+        const COURSES = [
+          {
+            id: "standard",
+            name: "季節のスタンダード宴会コース",
+            price: 5000,
+            dishCount: 7,
+            summary: "全7品 · 鮮魚3種盛り＋若鶏塩麹焼き＋炊き込みご飯",
+            dishes: [
+              { title: "1. 先付け", note: "季節のお浸しと小鉢" },
+              { title: "2. お造り", note: "鮮魚3種盛り（本鮪・真鯛・カンパチ）" },
+              { title: "3. サラダ", note: "旬野菜と水菜の彩り和風サラダ" },
+              { title: "4. 焼き物", note: "若鶏の塩麹焼き 柚子胡椒添え" },
+              { title: "5. 逸品", note: "特製出汁巻き玉子" },
+              { title: "6. お食事", note: "鶏ごぼうの釜炊き込みご飯・香の物" },
+              { title: "7. 甘味", note: "黒蜜きな粉わらび餅" },
+            ],
+            ingredients: [
+              {
+                id: "std-tuna",
+                name: "本鮪（赤身）",
+                category: "fish",
+                dish: "お造り3種盛り",
+                prepNote: "柵取り・1人前2切れ（約35g）",
+                perGuest: 35,
+                unit: "g",
+                yieldFactor: 1.15,
+                packSize: 500,
+                packLabel: "柵（500g単位）",
+              },
+              {
+                id: "std-tai",
+                name: "真鯛（刺身用）",
+                category: "fish",
+                dish: "お造り3種盛り",
+                prepNote: "皮引き・そぎ切り2切れ（約30g）",
+                perGuest: 30,
+                unit: "g",
+                yieldFactor: 1.25,
+                packSize: 1000,
+                packLabel: "尾/フィレ換算（1kg単位）",
+              },
+              {
+                id: "std-kanpachi",
+                name: "カンパチ（刺身用）",
+                category: "fish",
+                dish: "お造り3種盛り",
+                prepNote: "血合い除去・平造り2切れ（約30g）",
+                perGuest: 30,
+                unit: "g",
+                yieldFactor: 1.2,
+                packSize: 500,
+                packLabel: "半身/柵（500g単位）",
+              },
+              {
+                id: "std-chicken",
+                name: "国産若鶏もも肉",
+                category: "meat",
+                dish: "若鶏の塩麹焼き＋炊き込み",
+                prepNote: "余分な脂掃除・前日塩麹漬け込み",
+                perGuest: 140,
+                unit: "g",
+                yieldFactor: 1.1,
+                packSize: 2000,
+                packLabel: "2kgパック",
+              },
+              {
+                id: "std-greens",
+                name: "水菜・ベビーリーフ・大根",
+                category: "veg",
+                dish: "サラダ＋刺身のツマ",
+                prepNote: "氷水晒し・水切り徹底",
+                perGuest: 65,
+                unit: "g",
+                yieldFactor: 1.15,
+                packSize: 500,
+                packLabel: "500g袋",
+              },
+              {
+                id: "std-gobou",
+                name: "ごぼう・人参・しめじ",
+                category: "veg",
+                dish: "炊き込みご飯＋お浸し",
+                prepNote: "ささがき・アク抜き",
+                perGuest: 45,
+                unit: "g",
+                yieldFactor: 1.15,
+                packSize: 500,
+                packLabel: "500g単位",
+              },
+              {
+                id: "std-egg",
+                name: "鶏卵（M〜Lサイズ）",
+                category: "dry",
+                dish: "特製出汁巻き玉子",
+                prepNote: "卵液合わせ・当日焼成",
+                perGuest: 1.2,
+                unit: "個",
+                yieldFactor: 1.05,
+                packSize: 10,
+                packLabel: "10個入りパック",
+              },
+              {
+                id: "std-rice",
+                name: "白米（仕込み用）",
+                category: "dry",
+                dish: "釜炊き込みご飯",
+                prepNote: "浸水30分以上",
+                perGuest: 85,
+                unit: "g",
+                yieldFactor: 1.0,
+                packSize: 5000,
+                packLabel: "5kg袋",
+              },
+              {
+                id: "std-warabi",
+                name: "わらび餅・黒蜜",
+                category: "dry",
+                dish: "甘味",
+                prepNote: "切り分け・冷蔵保管",
+                perGuest: 2,
+                unit: "切れ",
+                yieldFactor: 1.0,
+                packSize: 20,
+                packLabel: "20切れトレー",
+              },
+            ],
+          },
+          {
+            id: "wagyu",
+            name: "厳選刺身と黒毛和牛の贅沢コース",
+            price: 7500,
+            dishCount: 9,
+            summary: "全9品 · 本鮪5種盛り＋黒毛和牛鉄板＋鯛めし",
+            dishes: [
+              { title: "1. 先付け", note: "湯葉と生雲丹の小鉢" },
+              { title: "2. お造り", note: "本鮪中トロ入り 刺身5種豪華盛り" },
+              { title: "3. 蒸し物", note: "蟹あんかけ茶碗蒸し" },
+              { title: "4. 強肴", note: "黒毛和牛サーロイン鉄板焼き" },
+              { title: "5. 揚げ物", note: "海老と季節野菜の天ぷら" },
+              { title: "6. 煮物", note: "合鴨ロースの冷製含め煮" },
+              { title: "7. お食事", note: "真鯛の土鍋飯" },
+              { title: "8. 留め椀", note: "赤だし味噌汁" },
+              { title: "9. 甘味", note: "宇治抹茶アイス" },
+            ],
+            ingredients: [
+              {
+                id: "wag-toro",
+                name: "本鮪（中トロ・赤身）",
+                category: "fish",
+                dish: "刺身5種豪華盛り",
+                prepNote: "筋切り・厚切り2種盛り",
+                perGuest: 50,
+                unit: "g",
+                yieldFactor: 1.18,
+                packSize: 500,
+                packLabel: "柵（500g単位）",
+              },
+              {
+                id: "wag-tai",
+                name: "天然真鯛（刺身・鯛めし用）",
+                category: "fish",
+                dish: "刺身5種＋土鍋鯛めし",
+                prepNote: "アラは出汁取り用に確保",
+                perGuest: 75,
+                unit: "g",
+                yieldFactor: 1.3,
+                packSize: 1000,
+                packLabel: "1kg単位",
+              },
+              {
+                id: "wag-shrimp",
+                name: "ブラックタイガー（無頭えび）",
+                category: "fish",
+                dish: "天ぷら盛り合わせ",
+                prepNote: "背ワタ取り・腹切れ目入れ",
+                perGuest: 2,
+                unit: "尾",
+                yieldFactor: 1.05,
+                packSize: 20,
+                packLabel: "20尾箱",
+              },
+              {
+                id: "wag-uni",
+                name: "生うに（板うに）",
+                category: "fish",
+                dish: "先付け 湯葉雲丹",
+                prepNote: "当日盛り付け直前まで冷蔵",
+                perGuest: 12,
+                unit: "g",
+                yieldFactor: 1.05,
+                packSize: 100,
+                packLabel: "100g木箱",
+              },
+              {
+                id: "wag-beef",
+                name: "黒毛和牛サーロイン",
+                category: "meat",
+                dish: "サーロイン鉄板焼き",
+                prepNote: "筋引き・1人前80gカット・常温戻し",
+                perGuest: 80,
+                unit: "g",
+                yieldFactor: 1.15,
+                packSize: 1000,
+                packLabel: "1kgブロック",
+              },
+              {
+                id: "wag-duck",
+                name: "合鴨ロースブロック",
+                category: "meat",
+                dish: "合鴨ロース含め煮",
+                prepNote: "前日仕込み・皮目焼き→低温煮",
+                perGuest: 45,
+                unit: "g",
+                yieldFactor: 1.12,
+                packSize: 500,
+                packLabel: "500gブロック",
+              },
+              {
+                id: "wag-tempura-veg",
+                name: "舞茸・さつまいも・ししとう",
+                category: "veg",
+                dish: "季節の天ぷら・付け合わせ",
+                prepNote: "下切り・水気拭き取り",
+                perGuest: 70,
+                unit: "g",
+                yieldFactor: 1.15,
+                packSize: 500,
+                packLabel: "500g単位",
+              },
+              {
+                id: "wag-rice",
+                name: "白米（鯛めし用）",
+                category: "dry",
+                dish: "真鯛の土鍋飯",
+                prepNote: "昆布出汁で炊き上げ",
+                perGuest: 90,
+                unit: "g",
+                yieldFactor: 1.0,
+                packSize: 5000,
+                packLabel: "5kg袋",
+              },
+              {
+                id: "wag-ice",
+                name: "宇治抹茶アイス（業務用2L）",
+                category: "dry",
+                dish: "甘味",
+                prepNote: "1人前1スクープ（約50ml）",
+                perGuest: 50,
+                unit: "ml",
+                yieldFactor: 1.05,
+                packSize: 2000,
+                packLabel: "2Lバルク",
+              },
+            ],
+          },
+          {
+            id: "motsunabe",
+            name: "名物もつ鍋・地鶏満腹コース",
+            price: 4500,
+            dishCount: 7,
+            summary: "全7品 · 博多風牛もつ鍋＋地鶏たたき＋ちゃんぽん〆",
+            dishes: [
+              { title: "1. 前菜", note: "茶豆と博多名物酢もつ" },
+              { title: "2. 鮮魚", note: "胡麻カンパチ" },
+              { title: "3. 名物", note: "地鶏もも肉の炭火たたき" },
+              { title: "4. 揚げ物", note: "特製醤油麹の鶏唐揚げ" },
+              { title: "5. 鍋物", note: "特製白味噌仕立て 牛もつ鍋" },
+              { title: "6. 〆", note: "ちゃんぽん麺＆薬味セット" },
+              { title: "7. 甘味", note: "ゆずシャーベット" },
+            ],
+            ingredients: [
+              {
+                id: "mot-motsu",
+                name: "国産牛小腸（もつ鍋用）",
+                category: "meat",
+                dish: "博多風牛もつ鍋",
+                prepNote: "下茹で・一口カット（臭み取り）",
+                perGuest: 110,
+                unit: "g",
+                yieldFactor: 1.15,
+                packSize: 1000,
+                packLabel: "1kg冷凍パック",
+              },
+              {
+                id: "mot-jidori",
+                name: "地鶏もも肉（たたき・唐揚げ）",
+                category: "meat",
+                dish: "地鶏たたき＋鶏唐揚げ",
+                prepNote: "たたき用炙り＋唐揚げ下味漬け",
+                perGuest: 130,
+                unit: "g",
+                yieldFactor: 1.1,
+                packSize: 2000,
+                packLabel: "2kgパック",
+              },
+              {
+                id: "mot-kanpachi",
+                name: "カンパチ（胡麻カンパチ用）",
+                category: "fish",
+                dish: "胡麻カンパチ",
+                prepNote: "平造り・特製胡麻ダレ和え",
+                perGuest: 55,
+                unit: "g",
+                yieldFactor: 1.2,
+                packSize: 500,
+                packLabel: "柵（500g単位）",
+              },
+              {
+                id: "mot-cabbage",
+                name: "キャベツ（鍋用）",
+                category: "veg",
+                dish: "牛もつ鍋",
+                prepNote: "ざく切り・芯除去",
+                perGuest: 120,
+                unit: "g",
+                yieldFactor: 1.2,
+                packSize: 1000,
+                packLabel: "1玉（約1kg）",
+              },
+              {
+                id: "mot-nira",
+                name: "ニラ・ごぼう・にんにく",
+                category: "veg",
+                dish: "牛もつ鍋",
+                prepNote: "ニラ5cmカット・にんにくスライス",
+                perGuest: 55,
+                unit: "g",
+                yieldFactor: 1.1,
+                packSize: 500,
+                packLabel: "500g単位",
+              },
+              {
+                id: "mot-tofu",
+                name: "木綿豆腐（鍋用）",
+                category: "dry",
+                dish: "牛もつ鍋",
+                prepNote: "8等分カット・水切り",
+                perGuest: 0.25,
+                unit: "丁",
+                yieldFactor: 1.0,
+                packSize: 1,
+                packLabel: "1丁（約350g）",
+              },
+              {
+                id: "mot-men",
+                name: "茹でちゃんぽん麺",
+                category: "dry",
+                dish: "鍋の〆",
+                prepNote: "1玉を2名でシェア目安",
+                perGuest: 0.5,
+                unit: "玉",
+                yieldFactor: 1.05,
+                packSize: 5,
+                packLabel: "5玉袋",
+              },
+            ],
+          },
+          {
+            id: "party",
+            name: "貸切ビュッフェ・パーティープラン",
+            price: 5500,
+            dishCount: 8,
+            summary: "全8品 · ローストビーフ＋カルパッチョ＋大皿パスタ",
+            dishes: [
+              { title: "1. 前菜", note: "ピンチョス3種盛り" },
+              { title: "2. サラダ", note: "生ハムと温泉卵のシーザーサラダ" },
+              { title: "3. 冷菜", note: "サーモンのカルパッチョ" },
+              { title: "4. 肉料理", note: "特製ローストビーフ" },
+              { title: "5. グリル", note: "若鶏のハーブグリル" },
+              { title: "6. ピッツァ", note: "マルゲリータ" },
+              { title: "7. パスタ", note: "ベーコンと季節野菜のトマトパスタ" },
+              { title: "8. デザート", note: "プチケーキ盛り合わせ" },
+            ],
+            ingredients: [
+              {
+                id: "pty-roastbeef",
+                name: "牛モモ肉（ローストビーフ用）",
+                category: "meat",
+                dish: "特製ローストビーフ",
+                prepNote: "前日低温調理・当日薄切りスライス",
+                perGuest: 75,
+                unit: "g",
+                yieldFactor: 1.2,
+                packSize: 1000,
+                packLabel: "1kgブロック",
+              },
+              {
+                id: "pty-chicken",
+                name: "若鶏もも肉（ハーブ焼き）",
+                category: "meat",
+                dish: "若鶏のハーブグリル",
+                prepNote: "一口カット・ローズマリーマリネ",
+                perGuest: 100,
+                unit: "g",
+                yieldFactor: 1.1,
+                packSize: 2000,
+                packLabel: "2kgパック",
+              },
+              {
+                id: "pty-salmon",
+                name: "トラウトサーモン（刺身用フィレ）",
+                category: "fish",
+                dish: "サーモンカルパッチョ",
+                prepNote: "骨抜き・薄造り・大皿盛り",
+                perGuest: 50,
+                unit: "g",
+                yieldFactor: 1.15,
+                packSize: 800,
+                packLabel: "フィレ（約800g）",
+              },
+              {
+                id: "pty-lettuce",
+                name: "ロメインレタス・トマト・パプリカ",
+                category: "veg",
+                dish: "シーザーサラダ＋彩り",
+                prepNote: "氷水でパリッと仕上げ",
+                perGuest: 75,
+                unit: "g",
+                yieldFactor: 1.15,
+                packSize: 500,
+                packLabel: "500g単位",
+              },
+              {
+                id: "pty-pasta",
+                name: "スパゲッティ乾麺（1.6mm）",
+                category: "dry",
+                dish: "トマトパスタ",
+                prepNote: "大皿シェア用（1名65g基準）",
+                perGuest: 65,
+                unit: "g",
+                yieldFactor: 1.0,
+                packSize: 1000,
+                packLabel: "1kg袋",
+              },
+              {
+                id: "pty-pizza",
+                name: "冷凍ナポリピッツァ生地・モッツァレラ",
+                category: "dry",
+                dish: "マルゲリータ",
+                prepNote: "4名で1枚目安・8カット提供",
+                perGuest: 0.25,
+                unit: "枚",
+                yieldFactor: 1.0,
+                packSize: 5,
+                packLabel: "5枚箱",
+              },
+              {
+                id: "pty-cake",
+                name: "業務用フリーカットケーキ",
+                category: "dry",
+                dish: "プチケーキ盛り合わせ",
+                prepNote: "半解凍状態でカット",
+                perGuest: 1.5,
+                unit: "切れ",
+                yieldFactor: 1.05,
+                packSize: 24,
+                packLabel: "1シート（24カット）",
+              },
+            ],
+          },
+        ];
+
+        // 飲み放題追加用食材
+        const DRINK_INGREDIENTS = [
+          {
+            id: "drk-beer",
+            name: "生ビール樽（中ジョッキ換算）",
+            category: "dry",
+            dish: "飲み放題",
+            prepNote: "1人2.5杯（約800ml）想定・10L樽推奨",
+            perGuest: 800,
+            unit: "ml",
+            yieldFactor: 1.05,
+            packSize: 10000,
+            packLabel: "10L樽",
+          },
+          {
+            id: "drk-soda",
+            name: "強炭酸水（ハイボール・サワー用）",
+            category: "dry",
+            dish: "飲み放題",
+            prepNote: "冷却在庫確認・サーバー予備含む",
+            perGuest: 400,
+            unit: "ml",
+            yieldFactor: 1.1,
+            packSize: 12000,
+            packLabel: "1ケース（500ml×24本）",
+          },
+          {
+            id: "drk-soft",
+            name: "烏龍茶・ソフトドリンク類",
+            category: "dry",
+            dish: "飲み放題",
+            prepNote: "ペットボトル冷やし込み",
+            perGuest: 300,
+            unit: "ml",
+            yieldFactor: 1.1,
+            packSize: 12000,
+            packLabel: "1ケース（2L×6本）",
+          },
+          {
+            id: "drk-ice",
+            name: "製氷・かち割り氷",
+            category: "dry",
+            dish: "飲み放題",
+            prepNote: "製氷機満杯＋予備袋確保",
+            perGuest: 250,
+            unit: "g",
+            yieldFactor: 1.1,
+            packSize: 4000,
+            packLabel: "4kg袋",
+          },
+        ];
+
+        // アプリ状態
+        const state = {
+          guests: 20,
+          bufferPct: 10,
+          courseId: "standard",
+          eventDate: "",
+          eventTime: "19:00",
+          includeDrinks: true,
+          categoryFilter: "all",
+          searchQuery: "",
+          checkedIds: new Set(),
+          customIngredients: [],
+        };
+
+        // DOM 参照
+        const els = {
+          todayDisplay: document.getElementById("todayDisplay"),
+          daysUntilLabel: document.getElementById("daysUntilLabel"),
+          eventDate: document.getElementById("eventDate"),
+          eventTime: document.getElementById("eventTime"),
+          guestInput: document.getElementById("guestInput"),
+          guestSlider: document.getElementById("guestSlider"),
+          guestMinusBtn: document.getElementById("guestMinusBtn"),
+          guestPlusBtn: document.getElementById("guestPlusBtn"),
+          bufferSlider: document.getElementById("bufferSlider"),
+          bufferLabel: document.getElementById("bufferLabel"),
+          courseList: document.getElementById("courseList"),
+          drinkToggle: document.getElementById("drinkToggle"),
+          kpiEffectiveGuests: document.getElementById("kpiEffectiveGuests"),
+          kpiGuestDetail: document.getElementById("kpiGuestDetail"),
+          kpiRevenue: document.getElementById("kpiRevenue"),
+          kpiCourseUnit: document.getElementById("kpiCourseUnit"),
+          kpiEarliestDeadline: document.getElementById("kpiEarliestDeadline"),
+          kpiEarliestVendor: document.getElementById("kpiEarliestVendor"),
+          kpiItemCount: document.getElementById("kpiItemCount"),
+          kpiCheckedCount: document.getElementById("kpiCheckedCount"),
+          urgentNotice: document.getElementById("urgentNotice"),
+          deadlineList: document.getElementById("deadlineList"),
+          prepSummaryMeta: document.getElementById("prepSummaryMeta"),
+          categoryTabs: document.getElementById("categoryTabs"),
+          searchInput: document.getElementById("searchInput"),
+          prepTableBody: document.getElementById("prepTableBody"),
+          mobilePrepList: document.getElementById("mobilePrepList"),
+          emptyPrepState: document.getElementById("emptyPrepState"),
+          customForm: document.getElementById("customIngredientForm"),
+          customName: document.getElementById("customName"),
+          customCat: document.getElementById("customCat"),
+          customPerGuest: document.getElementById("customPerGuest"),
+          customUnit: document.getElementById("customUnit"),
+          courseDishCount: document.getElementById("courseDishCount"),
+          courseDishGrid: document.getElementById("courseDishGrid"),
+          stickyMainInfo: document.getElementById("stickyMainInfo"),
+          stickySubInfo: document.getElementById("stickySubInfo"),
+          topCopyBtn: document.getElementById("topCopyBtn"),
+          mobileCopyBtn: document.getElementById("mobileCopyBtn"),
+          resetBtn: document.getElementById("resetBtn"),
+          printBtn: document.getElementById("printBtn"),
+          toast: document.getElementById("toast"),
+        };
+
+        const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"];
+
+        function formatDateInput(dateObj) {
+          const y = dateObj.getFullYear();
+          const m = String(dateObj.getMonth() + 1).padStart(2, "0");
+          const d = String(dateObj.getDate()).padStart(2, "0");
+          return `${y}-${m}-${d}`;
+        }
+
+        function addDays(dateObj, days) {
+          const copy = new Date(dateObj.getTime());
+          copy.setDate(copy.getDate() + days);
+          return copy;
+        }
+
+        function formatJapaneseDate(dateObj, includeTime) {
+          const m = dateObj.getMonth() + 1;
+          const d = dateObj.getDate();
+          const w = WEEKDAYS[dateObj.getDay()];
+          if (!includeTime) return `${m}月${d}日(${w})`;
+          const hh = String(dateObj.getHours()).padStart(2, "0");
+          const mm = String(dateObj.getMinutes()).padStart(2, "0");
+          return `${m}月${d}日(${w}) ${hh}:${mm}`;
+        }
+
+        function formatShortDate(dateObj) {
+          const m = dateObj.getMonth() + 1;
+          const d = dateObj.getDate();
+          const w = WEEKDAYS[dateObj.getDay()];
+          return `${m}/${d}(${w})`;
+        }
+
+        function parseLocalDate(dateStr, timeStr) {
+          const [y, m, d] = dateStr.split("-").map(Number);
+          const [hh, mm] = (timeStr || "19:00").split(":").map(Number);
+          return new Date(y, m - 1, d, hh, mm, 0, 0);
+        }
+
+        // 数量フォーマット（g->kg, ml->L に自動整形）
+        function formatAmount(rawValue, unit) {
+          if (unit === "g") {
+            if (rawValue >= 1000) {
+              return `${(rawValue / 1000).toFixed(2).replace(/\.?0+$/, "")} kg`;
+            }
+            return `${Math.round(rawValue)} g`;
+          }
+          if (unit === "ml") {
+            if (rawValue >= 1000) {
+              return `${(rawValue / 1000).toFixed(1).replace(/\.0$/, "")} L`;
+            }
+            return `${Math.round(rawValue)} ml`;
+          }
+          return `${Math.ceil(rawValue)} ${unit}`;
+        }
+
+        // 卸発注単位（歩留まり＋パック単位切り上げ）
+        function formatOrderAmount(item, netAmount) {
+          const gross = netAmount * (item.yieldFactor || 1);
+          if (!item.packSize) {
+            return {
+              main: formatAmount(gross, item.unit),
+              sub: "ロス込み目安",
+            };
+          }
+          const packs = Math.max(1, Math.ceil(gross / item.packSize));
+          const orderQty = packs * item.packSize;
+          return {
+            main: formatAmount(orderQty, item.unit),
+            sub: `${item.packLabel} × ${packs}`,
+          };
+        }
+
+        // トースト通知
+        let toastTimer = null;
+        function showToast(msg) {
+          els.toast.textContent = msg;
+          els.toast.classList.add("is-shown");
+          clearTimeout(toastTimer);
+          toastTimer = setTimeout(() => {
+            els.toast.classList.remove("is-shown");
+          }, 2400);
+        }
+
+        function getActiveCourse() {
+          return COURSES.find((c) => c.id === state.courseId) || COURSES[0];
+        }
+
+        function getActiveIngredients() {
+          const course = getActiveCourse();
+          const list = [...course.ingredients];
+          if (state.includeDrinks) {
+            list.push(...DRINK_INGREDIENTS);
+          }
+          list.push(...state.customIngredients);
+          return list;
+        }
+
+        function getEffectiveGuests() {
+          return state.guests * (1 + state.bufferPct / 100);
+        }
+
+        // 卸先別の締切日時を計算（市場休市の日水もチェック）
+        function computeVendorDeadlines() {
+          const now = new Date();
+          const eventDt = parseLocalDate(state.eventDate, state.eventTime);
+          const results = [];
+
+          Object.values(VENDORS).forEach((vendor) => {
+            const cutoff = new Date(
+              eventDt.getFullYear(),
+              eventDt.getMonth(),
+              eventDt.getDate() - vendor.leadDays,
+              vendor.cutoffHour,
+              vendor.cutoffMin,
+              0,
+              0
+            );
+
+            // 市場（鮮魚）の締切日が水曜(3)または日曜(0)に重なる場合、前日へ前倒し警告
+            let marketAdjusted = false;
+            let adjustedCutoff = new Date(cutoff.getTime());
+            if (vendor.id === "fish" && (cutoff.getDay() === 0 || cutoff.getDay() === 3)) {
+              adjustedCutoff.setDate(adjustedCutoff.getDate() - 1);
+              marketAdjusted = true;
+            }
+
+            const diffMs = adjustedCutoff.getTime() - now.getTime();
+            const diffHours = diffMs / (1000 * 60 * 60);
+
+            let statusClass = "state-ok";
+            let statusLabel = "余裕あり";
+            if (diffMs < 0) {
+              statusClass = "state-danger";
+              statusLabel = "締切超過 · 至急電話確認";
+            } else if (diffHours <= 24) {
+              statusClass = "state-warn";
+              statusLabel = "24時間以内 · 本日手配";
+            } else {
+              const daysLeft = Math.floor(diffHours / 24);
+              statusLabel = `あと${daysLeft}日`;
+            }
+
+            results.push({
+              vendor,
+              cutoff: adjustedCutoff,
+              marketAdjusted,
+              diffMs,
+              statusClass,
+              statusLabel,
+            });
+          });
+
+          results.sort((a, b) => a.cutoff.getTime() - b.cutoff.getTime());
+          return results;
+        }
+
+        // コース一覧を描画
+        function renderCourseOptions() {
+          els.courseList.innerHTML = COURSES.map((course) => {
+            const selected = course.id === state.courseId;
+            return `
+              <button
+                type="button"
+                class="course-option ${selected ? "is-selected" : ""}"
+                data-course-id="${course.id}"
+                role="radio"
+                aria-checked="${selected}"
+              >
+                <div class="course-option-top">
+                  <span class="course-name">${course.name}</span>
+                  <span class="course-price tnum">¥${course.price.toLocaleString("ja-JP")}</span>
+                </div>
+                <div class="course-meta">${course.summary}</div>
+              </button>
+            `;
+          }).join("");
+
+          els.courseList.querySelectorAll(".course-option").forEach((btn) => {
+            btn.addEventListener("click", () => {
+              state.courseId = btn.getAttribute("data-course-id");
+              renderAll();
+            });
+          });
+        }
+
+        // 全体レンダリング
+        function renderAll() {
+          const now = new Date();
+          els.todayDisplay.textContent = `本日 ${formatShortDate(now)}`;
+
+          const course = getActiveCourse();
+          const effectiveGuests = getEffectiveGuests();
+          const allItems = getActiveIngredients();
+
+          // 予約日までの日数
+          const eventDt = parseLocalDate(state.eventDate, state.eventTime);
+          const todayMid = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+          const eventMid = new Date(eventDt.getFullYear(), eventDt.getMonth(), eventDt.getDate());
+          const daysUntil = Math.round((eventMid - todayMid) / (1000 * 60 * 60 * 24));
+
+          if (daysUntil < 0) {
+            els.daysUntilLabel.textContent = "過去の日付が選択中";
+          } else if (daysUntil === 0) {
+            els.daysUntilLabel.textContent = "本日開催";
+          } else {
+            els.daysUntilLabel.textContent = `開催まであと${daysUntil}日`;
+          }
+
+          // 予備率表示
+          const extraGuests = (state.guests * state.bufferPct) / 100;
+          const extraDisplay = Number.isInteger(extraGuests)
+            ? extraGuests
+            : extraGuests.toFixed(1);
+          els.bufferLabel.textContent = `+${state.bufferPct}%（+${extraDisplay}名分）`;
+
+          // 人数クイックボタンのハイライト更新
+          document.querySelectorAll(".guest-preset").forEach((btn) => {
+            const val = Number(btn.getAttribute("data-guests"));
+            btn.classList.toggle("is-active", val === state.guests);
+          });
+
+          // コース選択UI
+          renderCourseOptions();
+
+          // KPIサマリー
+          const effDisplay = Number.isInteger(effectiveGuests)
+            ? effectiveGuests
+            : effectiveGuests.toFixed(1);
+          els.kpiEffectiveGuests.textContent = `${effDisplay}名分`;
+          els.kpiGuestDetail.textContent = `予約${state.guests}名 ＋ 予備${state.bufferPct}%`;
+
+          const totalRevenue = state.guests * course.price;
+          els.kpiRevenue.textContent = `¥${totalRevenue.toLocaleString("ja-JP")}`;
+          els.kpiCourseUnit.textContent = `1名 ¥${course.price.toLocaleString("ja-JP")}`;
+
+          // 卸締切計算
+          const deadlines = computeVendorDeadlines();
+          const earliest = deadlines[0];
+          els.kpiEarliestDeadline.textContent = formatShortDate(earliest.cutoff);
+          els.kpiEarliestVendor.textContent = `${earliest.vendor.name}（${String(
+            earliest.cutoff.getHours()
+          ).padStart(2, "0")}:00まで）`;
+
+          const checkedCount = allItems.filter((item) => state.checkedIds.has(item.id)).length;
+          els.kpiItemCount.textContent = `${allItems.length}品目`;
+          els.kpiCheckedCount.textContent = `確認済み ${checkedCount}品目`;
+
+          // スマホ固定バー
+          els.stickyMainInfo.textContent = `${state.guests}名 · ${course.name}`;
+          els.stickySubInfo.textContent = `最短締切: ${formatJapaneseDate(
+            earliest.cutoff,
+            true
+          )}（${earliest.vendor.name}）`;
+
+          // 緊急アラート・市場休市アラート
+          const overdueVendors = deadlines.filter((d) => d.diffMs < 0);
+          const adjustedFish = deadlines.find((d) => d.marketAdjusted);
+          if (overdueVendors.length > 0) {
+            const names = overdueVendors.map((d) => d.vendor.name).join("・");
+            els.urgentNotice.innerHTML = `<strong>発注締切を過ぎている仕入先があります（${names}）</strong><br>Web発注や通常便が間に合わない可能性があります。卸先へ直接電話で在庫・当日便の可否を確認するか、近隣市場での買い出しをご検討ください。`;
+            els.urgentNotice.classList.add("is-visible");
+          } else if (adjustedFish) {
+            els.urgentNotice.innerHTML = `<strong>市場休市（水・日）に伴う前倒し案内</strong><br>鮮魚・市場仲買の本来の締切日が休市日に重なるため、<strong>${formatJapaneseDate(
+              adjustedFish.cutoff,
+              true
+            )}</strong> までの前倒し発注をおすすめします。`;
+            els.urgentNotice.classList.add("is-visible");
+          } else {
+            els.urgentNotice.classList.remove("is-visible");
+          }
+
+          // 卸先締切カード描画
+          els.deadlineList.innerHTML = deadlines
+            .map((d) => {
+              const vendorItems = allItems.filter((item) => item.category === d.vendor.id);
+              const previewNames =
+                vendorItems.length > 0
+                  ? vendorItems
+                      .slice(0, 4)
+                      .map((i) => i.name.replace(/（.*?）/g, ""))
+                      .join("・") + (vendorItems.length > 4 ? ` ほか${vendorItems.length - 4}点` : "")
+                  : "該当品目なし";
+
+              return `
+                <article class="deadline-item ${d.statusClass}">
+                  <div class="deadline-top">
+                    <span class="deadline-vendor">${d.vendor.name}（${vendorItems.length}品目）</span>
+                    <span class="status-text tnum">${d.statusLabel}</span>
+                  </div>
+                  <div class="deadline-datetime tnum">${formatJapaneseDate(d.cutoff, true)} まで</div>
+                  <div class="deadline-items-preview">${previewNames}</div>
+                  <div class="deadline-footer">
+                    <span>${d.vendor.note}</span>
+                    ${
+                      vendorItems.length > 0
+                        ? `<button type="button" class="mini-copy-btn" data-copy-vendor="${d.vendor.id}">この卸分をコピー</button>`
+                        : ""
+                    }
+                  </div>
+                </article>
+              `;
+            })
+            .join("");
+
+          els.deadlineList.querySelectorAll("[data-copy-vendor]").forEach((btn) => {
+            btn.addEventListener("click", () => {
+              const vendorId = btn.getAttribute("data-copy-vendor");
+              copyOrderText(vendorId);
+            });
+          });
+
+          // 食材リストの絞り込み
+          const query = state.searchQuery.trim().toLowerCase();
+          const filteredItems = allItems.filter((item) => {
+            const matchCat = state.categoryFilter === "all" || item.category === state.categoryFilter;
+            const matchSearch =
+              !query ||
+              item.name.toLowerCase().includes(query) ||
+              item.dish.toLowerCase().includes(query) ||
+              item.prepNote.toLowerCase().includes(query);
+            return matchCat && matchSearch;
+          });
+
+          els.prepSummaryMeta.textContent = `${filteredItems.length}件表示（基準 ${effDisplay}名分）`;
+
+          if (filteredItems.length === 0) {
+            els.prepTableBody.innerHTML = "";
+            els.mobilePrepList.innerHTML = "";
+            els.emptyPrepState.style.display = "block";
+          } else {
+            els.emptyPrepState.style.display = "none";
+
+            // デスクトップ用テーブル
+            els.prepTableBody.innerHTML = filteredItems
+              .map((item) => {
+                const netQty = item.perGuest * effectiveGuests;
+                const order = formatOrderAmount(item, netQty);
+                const vendorInfo = VENDORS[item.category];
+                const isChecked = state.checkedIds.has(item.id);
+                const isCustom = item.id.startsWith("custom-");
+
+                return `
+                  <tr class="${isChecked ? "is-checked" : ""}">
+                    <td class="check-cell">
+                      <input
+                        type="checkbox"
+                        class="prep-checkbox"
+                        data-check-id="${item.id}"
+                        aria-label="${item.name}を確認済みにする"
+                        ${isChecked ? "checked" : ""}
+                      />
+                    </td>
+                    <td>
+                      <span class="item-name">${escapeHtml(item.name)}</span>
+                      <span class="item-sub">${escapeHtml(item.dish)} · ${escapeHtml(item.prepNote)}</span>
+                    </td>
+                    <td>
+                      <span class="item-sub" style="margin:0;color:var(--text-primary);font-weight:600;">${vendorInfo.name}</span>
+                      <span class="item-sub tnum">${vendorInfo.leadDays}日前締切</span>
+                    </td>
+                    <td class="num">
+                      <span class="qty-main tnum">${formatAmount(netQty, item.unit)}</span>
+                      <span class="qty-unit-note tnum">1名 ${item.perGuest}${item.unit}</span>
+                    </td>
+                    <td class="num">
+                      <span class="qty-order tnum">${order.main}</span>
+                      <span class="qty-unit-note">${order.sub}</span>
+                    </td>
+                    <td>
+                      ${
+                        isCustom
+                          ? `<button type="button" class="remove-custom-btn" data-remove-id="${item.id}" aria-label="削除">削除</button>`
+                          : ""
+                      }
+                    </td>
+                  </tr>
+                `;
+              })
+              .join("");
+
+            // スマホ用カード
+            els.mobilePrepList.innerHTML = filteredItems
+              .map((item) => {
+                const netQty = item.perGuest * effectiveGuests;
+                const order = formatOrderAmount(item, netQty);
+                const vendorInfo = VENDORS[item.category];
+                const isChecked = state.checkedIds.has(item.id);
+                const isCustom = item.id.startsWith("custom-");
+
+                return `
+                  <div class="mobile-prep-card ${isChecked ? "is-checked" : ""}">
+                    <div class="mobile-card-head">
+                      <label class="mobile-card-check-wrap">
+                        <input
+                          type="checkbox"
+                          class="prep-checkbox"
+                          data-check-id="${item.id}"
+                          ${isChecked ? "checked" : ""}
+                        />
+                        <span>
+                          <span class="item-name">${escapeHtml(item.name)}</span>
+                          <span class="item-sub">${vendorInfo.name} · ${escapeHtml(item.dish)}</span>
+                          <span class="item-sub">${escapeHtml(item.prepNote)}</span>
+                        </span>
+                      </label>
+                      ${
+                        isCustom
+                          ? `<button type="button" class="remove-custom-btn" data-remove-id="${item.id}">削除</button>`
+                          : ""
+                      }
+                    </div>
+                    <div class="mobile-card-metrics">
+                      <div>
+                        <span class="mobile-metric-label">仕込み正味量</span>
+                        <span class="qty-main tnum">${formatAmount(netQty, item.unit)}</span>
+                      </div>
+                      <div>
+                        <span class="mobile-metric-label">卸への発注目安</span>
+                        <span class="qty-order tnum">${order.main}</span>
+                        <span class="qty-unit-note">${order.sub}</span>
+                      </div>
+                    </div>
+                  </div>
+                `;
+              })
+              .join("");
+
+            // チェックボックス & カスタム削除イベント
+            document.querySelectorAll("[data-check-id]").forEach((cb) => {
+              cb.addEventListener("change", () => {
+                const id = cb.getAttribute("data-check-id");
+                if (cb.checked) {
+                  state.checkedIds.add(id);
+                } else {
+                  state.checkedIds.delete(id);
+                }
+                renderAll();
+              });
+            });
+
+            document.querySelectorAll("[data-remove-id]").forEach((btn) => {
+              btn.addEventListener("click", () => {
+                const id = btn.getAttribute("data-remove-id");
+                state.customIngredients = state.customIngredients.filter((c) => c.id !== id);
+                state.checkedIds.delete(id);
+                showToast("追加食材を削除しました");
+                renderAll();
+              });
+            });
+          }
+
+          // コース構成表示
+          els.courseDishCount.textContent = `${course.name}（全${course.dishCount}品）`;
+          els.courseDishGrid.innerHTML = course.dishes
+            .map(
+              (dish) => `
+                <div class="dish-row">
+                  <div class="dish-title">${dish.title}</div>
+                  <div class="dish-note">${dish.note}</div>
+                </div>
+              `
+            )
+            .join("");
+        }
+
+        function escapeHtml(str) {
+          return String(str)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;");
+        }
+
+        // 発注用テキスト生成・コピー
+        function copyOrderText(targetVendorId) {
+          const course = getActiveCourse();
+          const effectiveGuests = getEffectiveGuests();
+          const allItems = getActiveIngredients();
+          const deadlines = computeVendorDeadlines();
+          const eventDt = parseLocalDate(state.eventDate, state.eventTime);
+
+          const lines = [];
+          lines.push(`【宴会発注・仕込みメモ】`);
+          lines.push(`日時: ${formatJapaneseDate(eventDt, true)}`);
+          lines.push(
+            `人数: ${state.guests}名（予備+${state.bufferPct}% → ${
+              Number.isInteger(effectiveGuests) ? effectiveGuests : effectiveGuests.toFixed(1)
+            }名分で算出）`
+          );
+          lines.push(`コース: ${course.name}`);
+          lines.push("");
+
+          const targetDeadlines = targetVendorId
+            ? deadlines.filter((d) => d.vendor.id === targetVendorId)
+            : deadlines;
+
+          targetDeadlines.forEach((d) => {
+            const vendorItems = allItems.filter((item) => item.category === d.vendor.id);
+            if (vendorItems.length === 0) return;
+            lines.push(`■ ${d.vendor.name}（締切: ${formatJapaneseDate(d.cutoff, true)}）`);
+            vendorItems.forEach((item) => {
+              const netQty = item.perGuest * effectiveGuests;
+              const order = formatOrderAmount(item, netQty);
+              lines.push(
+                `・${item.name}: 発注目安 ${order.main}（${order.sub} / 仕込み正味 ${formatAmount(
+                  netQty,
+                  item.unit
+                )}）`
+              );
+            });
+            lines.push("");
+          });
+
+          const text = lines.join("\n").trim();
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard
+              .writeText(text)
+              .then(() => {
+                showToast(
+                  targetVendorId
+                    ? `${VENDORS[targetVendorId].name}の発注リストをコピーしました`
+                    : "全体の発注リストをコピーしました"
+                );
+              })
+              .catch(() => fallbackCopy(text));
+          } else {
+            fallbackCopy(text);
+          }
+        }
+
+        function fallbackCopy(text) {
+          const ta = document.createElement("textarea");
+          ta.value = text;
+          ta.style.position = "fixed";
+          ta.style.opacity = "0";
+          document.body.appendChild(ta);
+          ta.select();
+          try {
+            document.execCommand("copy");
+            showToast("発注リストをクリップボードにコピーしました");
+          } catch (e) {
+            showToast("コピーに失敗しました。手動で選択してください");
+          }
+          document.body.removeChild(ta);
+        }
+
+        // 初期値設定とイベント紐付け
+        function init() {
+          const defaultDate = addDays(new Date(), 7);
+          state.eventDate = formatDateInput(defaultDate);
+          els.eventDate.value = state.eventDate;
+
+          // 日付・時間変更
+          els.eventDate.addEventListener("change", (e) => {
+            if (e.target.value) {
+              state.eventDate = e.target.value;
+              renderAll();
+            }
+          });
+
+          els.eventTime.addEventListener("change", (e) => {
+            if (e.target.value) {
+              state.eventTime = e.target.value;
+              renderAll();
+            }
+          });
+
+          // クイック日付ボタン
+          document.querySelectorAll("[data-days]").forEach((btn) => {
+            btn.addEventListener("click", () => {
+              const days = Number(btn.getAttribute("data-days"));
+              const target = addDays(new Date(), days);
+              state.eventDate = formatDateInput(target);
+              els.eventDate.value = state.eventDate;
+              renderAll();
+            });
+          });
+
+          // 人数更新ヘルパー
+          function setGuests(val) {
+            const clamped = Math.max(2, Math.min(120, Math.round(Number(val) || 2)));
+            state.guests = clamped;
+            els.guestInput.value = String(clamped);
+            els.guestSlider.value = String(clamped);
+            renderAll();
+          }
+
+          els.guestInput.addEventListener("input", (e) => {
+            const val = Number(e.target.value);
+            if (!Number.isNaN(val) && val >= 1) {
+              state.guests = Math.max(2, Math.min(120, Math.round(val)));
+              els.guestSlider.value = String(state.guests);
+              renderAll();
+            }
+          });
+
+          els.guestInput.addEventListener("blur", (e) => {
+            setGuests(e.target.value);
+          });
+
+          els.guestSlider.addEventListener("input", (e) => {
+            setGuests(e.target.value);
+          });
+
+          els.guestMinusBtn.addEventListener("click", () => {
+            setGuests(state.guests - 1);
+          });
+
+          els.guestPlusBtn.addEventListener("click", () => {
+            setGuests(state.guests + 1);
+          });
+
+          document.querySelectorAll(".guest-preset").forEach((btn) => {
+            btn.addEventListener("click", () => {
+              setGuests(btn.getAttribute("data-guests"));
+            });
+          });
+
+          // 予備率スライダー
+          els.bufferSlider.addEventListener("input", (e) => {
+            state.bufferPct = Number(e.target.value);
+            renderAll();
+          });
+
+          // 飲み放題トグル
+          els.drinkToggle.addEventListener("change", (e) => {
+            state.includeDrinks = e.target.checked;
+            renderAll();
+          });
+
+          // カテゴリタブ
+          els.categoryTabs.querySelectorAll(".seg-btn").forEach((btn) => {
+            btn.addEventListener("click", () => {
+              state.categoryFilter = btn.getAttribute("data-cat");
+              els.categoryTabs.querySelectorAll(".seg-btn").forEach((b) => {
+                const active = b === btn;
+                b.classList.toggle("is-active", active);
+                b.setAttribute("aria-selected", String(active));
+              });
+              renderAll();
+            });
+          });
+
+          // 検索入力
+          els.searchInput.addEventListener("input", (e) => {
+            state.searchQuery = e.target.value;
+            renderAll();
+          });
+
+          // カスタム食材追加
+          els.customForm.addEventListener("submit", (e) => {
+            e.preventDefault();
+            const name = els.customName.value.trim();
+            const cat = els.customCat.value;
+            const perGuest = Number(els.customPerGuest.value);
+            const unit = els.customUnit.value;
+
+            if (!name || Number.isNaN(perGuest) || perGuest <= 0) return;
+
+            state.customIngredients.push({
+              id: `custom-${Date.now()}`,
+              name,
+              category: cat,
+              dish: "店舗追加・特注品",
+              prepNote: "店主による手動追加食材",
+              perGuest,
+              unit,
+              yieldFactor: 1.05,
+              packSize: null,
+              packLabel: "都度手配",
+            });
+
+            els.customName.value = "";
+            showToast(`「${name}」を仕込みリストに追加しました`);
+            renderAll();
+          });
+
+          // コピー・印刷・リセット
+          els.topCopyBtn.addEventListener("click", () => copyOrderText(null));
+          els.mobileCopyBtn.addEventListener("click", () => copyOrderText(null));
+          els.printBtn.addEventListener("click", () => window.print());
+          els.resetBtn.addEventListener("click", () => {
+            state.guests = 20;
+            state.bufferPct = 10;
+            state.courseId = "standard";
+            state.eventDate = formatDateInput(addDays(new Date(), 7));
+            state.eventTime = "19:00";
+            state.includeDrinks = true;
+            state.categoryFilter = "all";
+            state.searchQuery = "";
+            state.checkedIds.clear();
+            state.customIngredients = [];
+
+            els.guestInput.value = "20";
+            els.guestSlider.value = "20";
+            els.bufferSlider.value = "10";
+            els.eventDate.value = state.eventDate;
+            els.eventTime.value = state.eventTime;
+            els.drinkToggle.checked = true;
+            els.searchInput.value = "";
+            els.categoryTabs.querySelectorAll(".seg-btn").forEach((b) => {
+              const active = b.getAttribute("data-cat") === "all";
+              b.classList.toggle("is-active", active);
+              b.setAttribute("aria-selected", String(active));
+            });
+
+            showToast("条件を初期状態にリセットしました");
+            renderAll();
+          });
+
+          renderAll();
+        }
+
+        init();
+      })();
+    </script>
+  </body>
+</html>
